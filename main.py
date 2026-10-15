@@ -127,10 +127,64 @@ fig.update_layout(
 st.plotly_chart(fig, use_container_width=True)
 
 # 상관계수와 회귀식
-m1, m2 = st.columns(2)
-m1.metric("상관계수 (r)", f"{r:.3f}")
-m2.metric("연간 변화량(기울기)", f"{slope:+.4f} °C/년")
+st.metric("상관계수 (r)", f"{r:.3f}")
 st.write(f"회귀식: **기온 = {slope:.4f} × 연도 {intercept:+.2f}**")
+
+# 기울기를 "100년에 몇 도"로 바꿔 크게 보여 주기
+st.markdown(
+    f"""
+    <div style="text-align:center; padding:1.2rem 0;">
+        <div style="font-size:1.1rem; opacity:0.7;">직선의 기울기: 100년에</div>
+        <div style="font-size:4rem; font-weight:800; line-height:1.1;">{slope * 100:+.2f} °C</div>
+        <div style="font-size:1rem; opacity:0.7;">{start_year}~{end_year}년 전체 기간 기준</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+# 전체 기간 vs 최근 20년 기울기 비교
+RECENT_YEARS = 20
+recent = yearly[yearly["연도"] > end_year - RECENT_YEARS]
+st.subheader("전체 기간 vs 최근 20년")
+
+if len(recent) >= 3:
+    r_slope, _ = np.polyfit(
+        recent["연도"].to_numpy(dtype=float),
+        recent["연평균기온"].to_numpy(dtype=float),
+        1,
+    )
+    r_start = int(recent["연도"].min())
+    r_end = int(recent["연도"].max())
+    diff = (r_slope - slope) * 100
+
+    cA, cB = st.columns(2)
+    with cA:
+        st.metric(
+            f"전체 기간 ({start_year}~{end_year}년)",
+            f"{slope * 100:+.2f} °C / 100년",
+        )
+        st.caption(f"{n_years}개 해로 계산")
+    with cB:
+        st.metric(
+            f"최근 20년 ({r_start}~{r_end}년)",
+            f"{r_slope * 100:+.2f} °C / 100년",
+            delta=f"전체보다 {diff:+.2f} °C",
+            delta_color="off",
+        )
+        st.caption(f"{len(recent)}개 해로 계산")
+
+    if r_slope > slope:
+        st.write(
+            f"최근 20년의 상승 속도가 전체 기간보다 **{r_slope / slope:.1f}배** 빨라요."
+            if slope > 0
+            else "최근 20년의 기울기가 전체 기간보다 더 가팔라요."
+        )
+    st.caption(
+        "※ 20년은 점이 적어서 해마다의 들쭉날쭉함에 기울기가 크게 흔들릴 수 있어요. "
+        "100년당 값은 연간 기울기에 100을 곱한 것일 뿐, 실제로 100년을 관측한 값은 아니에요."
+    )
+else:
+    st.info("최근 20년 안에 쓸 수 있는 해가 3개 미만이라 비교할 수 없어요.")
 
 st.caption(
     "※ 직선을 데이터 범위 밖으로 늘린 값은 단순한 추세 연장일 뿐, 실제 미래 기온을 보장하지 않아요."
